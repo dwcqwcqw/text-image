@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+diffusers
+torch
+pydantic
+python-multipart 
