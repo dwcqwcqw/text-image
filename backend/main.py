@@ -1,7 +1,7 @@
 import os
 import torch
 from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -54,11 +54,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 简化静态文件服务配置
+# 更明确地设置静态文件服务
 frontend_path = pathlib.Path(__file__).parent / "static"
 if frontend_path.exists() and frontend_path.is_dir():
     print(f"Frontend path exists: {frontend_path}")
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="static")
+    
+    # 挂载assets目录
+    assets_path = frontend_path / "assets"
+    if assets_path.exists():
+        print(f"Mounting assets directory: {assets_path}")
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+    
+    # 挂载SVG图标
+    svg_path = frontend_path / "vite.svg"
+    if svg_path.exists():
+        print(f"SVG icon exists: {svg_path}")
+    
+    # 读取index.html作为根路径响应
+    @app.get("/", response_class=HTMLResponse)
+    async def read_index():
+        index_path = frontend_path / "index.html"
+        if index_path.exists():
+            with open(index_path, "r") as f:
+                return f.read()
+        else:
+            return "<h1>API is running but index.html not found</h1>"
+    
+    # 挂载SVG和其他根目录静态文件
+    app.mount("/", StaticFiles(directory=str(frontend_path)), name="static")
 else:
     print(f"Frontend path does not exist: {frontend_path}")
     @app.get("/")
