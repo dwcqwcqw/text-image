@@ -57,7 +57,13 @@ app.add_middleware(
 # Serve static files (frontend) only if the directory exists
 frontend_path = pathlib.Path(__file__).parent / "static"
 if frontend_path.exists() and frontend_path.is_dir():
-    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    # 挂载assets目录
+    assets_path = frontend_path / "assets"
+    if assets_path.exists() and assets_path.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+    
+    # 挂载vite.svg文件所在目录
+    app.mount("/", StaticFiles(directory=frontend_path), name="static")
     
     @app.get("/")
     def serve_index():
