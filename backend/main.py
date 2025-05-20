@@ -57,37 +57,22 @@ app.add_middleware(
 # 使用直接路由方式返回静态文件
 frontend_path = pathlib.Path(__file__).parent / "static"
 
-@app.get("/")
-async def read_index():
-    """返回index.html"""
+@app.get("/", response_class=HTMLResponse)
+async def serve_spa():
     index_path = frontend_path / "index.html"
-    print(f"Accessing index.html: {index_path}, exists: {index_path.exists()}")
+    print(f"SPA request: Serving index.html from {index_path}, exists: {index_path.exists()}")
     if index_path.exists():
-        return FileResponse(index_path, media_type="text/html")
-    return JSONResponse({"message": "API is running but index.html not found"})
+        with open(index_path) as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    return JSONResponse({"message": "SPA root but index.html not found"}, status_code=404)
 
-@app.get("/vite.svg")
-async def get_vite_icon():
-    """返回vite.svg图标"""
-    svg_path = frontend_path / "vite.svg"
-    print(f"Accessing vite.svg: {svg_path}, exists: {svg_path.exists()}")
-    if svg_path.exists():
-        return FileResponse(svg_path, media_type="image/svg+xml")
-    return JSONResponse({"error": "Icon not found"}, status_code=404)
-
-@app.get("/assets/{file_path:path}")
-async def get_asset(file_path: str):
-    """返回assets目录下的文件"""
-    asset_path = frontend_path / "assets" / file_path
-    print(f"Accessing asset: {asset_path}, exists: {asset_path.exists()}")
-    if asset_path.exists():
-        if file_path.endswith(".js"):
-            return FileResponse(asset_path, media_type="application/javascript")
-        elif file_path.endswith(".css"):
-            return FileResponse(asset_path, media_type="text/css")
-        else:
-            return FileResponse(asset_path)
-    return JSONResponse({"error": f"Asset {file_path} not found"}, status_code=404)
+# Mount static files AFTER the SPA route to avoid conflicts
+# This will serve files like /vite.svg and /assets/*
+if frontend_path.exists() and frontend_path.is_dir():
+    print(f"Mounting StaticFiles from directory: {frontend_path}")
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=False), name="static_root_files")
+else:
+    print(f"Static directory {frontend_path} not found, not mounting.")
 
 class GenerateRequest(BaseModel):
     gender: Optional[str] = None
