@@ -25,7 +25,7 @@ LORA_PATH = '/workspace/flux_nsfw/flux_lustly-ai_v1.safetensors'
 pipeline = AutoPipelineForText2Image.from_pretrained(
     MODEL_DIR,
     torch_dtype=torch.float16,  # Use float16 instead of bfloat16 for better compatibility
-    device_map="auto",          # Allow automatic memory management
+    device_map="balanced",      # Changed from "auto" to "balanced" as per error message
     local_files_only=True,      # Don't try to download from HF
 )
 
