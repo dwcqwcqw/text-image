@@ -120,4 +120,4 @@ async def generate_image(req: GenerateRequest):
         if "out of memory" in str(e):
             return JSONResponse({"error": "GPU out of memory. Try with a smaller image size or simpler prompt."}, status_code=500)
         else:
-            raise 
+            raise
