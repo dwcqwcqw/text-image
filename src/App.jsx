@@ -70,8 +70,12 @@ function App() {
     setLoading(true);
     setError('');
     setImageUrl(null);
+    
+    // 获取当前窗口URL的源部分（协议+主机+端口）
+    const apiBaseUrl = window.location.origin;
+    
     try {
-      const res = await fetch('/generate', {
+      const res = await fetch(`${apiBaseUrl}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options),
@@ -88,6 +92,7 @@ function App() {
       setImageUrl(url);
     } catch (err) {
       setError('Network error');
+      console.error('Error generating image:', err);
     }
     setLoading(false);
   };
