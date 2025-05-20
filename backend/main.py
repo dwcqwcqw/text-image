@@ -54,27 +54,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve static files (frontend) only if the directory exists
+# Define static file handling and routes
 frontend_path = pathlib.Path(__file__).parent / "static"
+print(f"Frontend path: {frontend_path}, exists: {frontend_path.exists()}")
+
+# API root endpoint if no static files
+@app.get("/")
+def api_root():
+    index_path = frontend_path / "index.html"
+    print(f"Checking index.html at: {index_path}, exists: {index_path.exists()}")
+    
+    if frontend_path.exists() and frontend_path.is_dir() and index_path.exists():
+        return FileResponse(index_path)
+    else:
+        return {"message": "Text-to-Image API is running. Use POST /generate endpoint."}
+
+# Mount static files if directory exists
 if frontend_path.exists() and frontend_path.is_dir():
-    # 挂载assets目录
+    print(f"Mounting static files from {frontend_path}")
+    
+    # 先尝试挂载/assets目录
     assets_path = frontend_path / "assets"
-    if assets_path.exists() and assets_path.is_dir():
+    if assets_path.exists():
+        print(f"Mounting /assets from {assets_path}")
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     
-    # 挂载vite.svg文件所在目录
-    app.mount("/", StaticFiles(directory=frontend_path), name="static")
-    
-    @app.get("/")
-    def serve_index():
-        index_file = frontend_path / "index.html"
-        if index_file.exists():
-            return FileResponse(index_file)
-        return JSONResponse({"message": "API is running. Frontend not available."})
-else:
-    @app.get("/")
-    def api_info():
-        return {"message": "Text-to-Image API is running. Use POST /generate endpoint."}
+    # 把所有静态文件挂载到根目录
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
+
 
 class GenerateRequest(BaseModel):
     gender: Optional[str] = None
