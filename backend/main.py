@@ -11,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 import pathlib
 
 # Read Hugging Face token from environment variable
-HF_TOKEN = os.getenv("HF_TOKEN")
-if not HF_TOKEN:
-    raise RuntimeError("HF_TOKEN environment variable not set.")
+# HF_TOKEN = os.getenv("HF_TOKEN")
+# if not HF_TOKEN:
+#    raise RuntimeError("HF_TOKEN environment variable not set.")
 
 # Load model and LoRA weights from RunPod volume
 MODEL_DIR = '/workspace/flux_base'
