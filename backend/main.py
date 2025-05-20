@@ -54,39 +54,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 更明确地设置静态文件服务
+# 使用直接路由方式返回静态文件
 frontend_path = pathlib.Path(__file__).parent / "static"
-if frontend_path.exists() and frontend_path.is_dir():
-    print(f"Frontend path exists: {frontend_path}")
-    
-    # 挂载assets目录
-    assets_path = frontend_path / "assets"
-    if assets_path.exists():
-        print(f"Mounting assets directory: {assets_path}")
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
-    
-    # 挂载SVG图标
+
+@app.get("/")
+async def read_index():
+    """返回index.html"""
+    index_path = frontend_path / "index.html"
+    print(f"Accessing index.html: {index_path}, exists: {index_path.exists()}")
+    if index_path.exists():
+        return FileResponse(index_path, media_type="text/html")
+    return JSONResponse({"message": "API is running but index.html not found"})
+
+@app.get("/vite.svg")
+async def get_vite_icon():
+    """返回vite.svg图标"""
     svg_path = frontend_path / "vite.svg"
+    print(f"Accessing vite.svg: {svg_path}, exists: {svg_path.exists()}")
     if svg_path.exists():
-        print(f"SVG icon exists: {svg_path}")
-    
-    # 读取index.html作为根路径响应
-    @app.get("/", response_class=HTMLResponse)
-    async def read_index():
-        index_path = frontend_path / "index.html"
-        if index_path.exists():
-            with open(index_path, "r") as f:
-                return f.read()
+        return FileResponse(svg_path, media_type="image/svg+xml")
+    return JSONResponse({"error": "Icon not found"}, status_code=404)
+
+@app.get("/assets/{file_path:path}")
+async def get_asset(file_path: str):
+    """返回assets目录下的文件"""
+    asset_path = frontend_path / "assets" / file_path
+    print(f"Accessing asset: {asset_path}, exists: {asset_path.exists()}")
+    if asset_path.exists():
+        if file_path.endswith(".js"):
+            return FileResponse(asset_path, media_type="application/javascript")
+        elif file_path.endswith(".css"):
+            return FileResponse(asset_path, media_type="text/css")
         else:
-            return "<h1>API is running but index.html not found</h1>"
-    
-    # 挂载SVG和其他根目录静态文件
-    app.mount("/", StaticFiles(directory=str(frontend_path)), name="static")
-else:
-    print(f"Frontend path does not exist: {frontend_path}")
-    @app.get("/")
-    def read_root():
-        return {"message": "API is running"}
+            return FileResponse(asset_path)
+    return JSONResponse({"error": f"Asset {file_path} not found"}, status_code=404)
 
 class GenerateRequest(BaseModel):
     gender: Optional[str] = None
