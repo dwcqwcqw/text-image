@@ -57,14 +57,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve static files (frontend)
+# Serve static files (frontend) only if the directory exists
 frontend_path = pathlib.Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=frontend_path), name="static")
-
-@app.get("/")
-def serve_index():
-    index_file = frontend_path / "index.html"
-    return FileResponse(index_file)
+if frontend_path.exists() and frontend_path.is_dir():
+    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    
+    @app.get("/")
+    def serve_index():
+        index_file = frontend_path / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse({"message": "API is running. Frontend not available."})
+else:
+    @app.get("/")
+    def api_info():
+        return {"message": "Text-to-Image API is running. Use POST /generate endpoint."}
 
 class GenerateRequest(BaseModel):
     gender: Optional[str] = None
