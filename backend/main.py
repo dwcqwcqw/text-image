@@ -29,9 +29,6 @@ pipeline = AutoPipelineForText2Image.from_pretrained(
     local_files_only=True,      # Don't try to download from HF
 )
 
-# Move to GPU with memory optimization
-pipeline.to("cuda")
-
 # Load LoRA weights with PEFT backend
 try:
     pipeline.load_lora_weights(
