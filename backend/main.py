@@ -1,34 +1,50 @@
 import os
+import torch
 from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import torch
 from diffusers import AutoPipelineForText2Image
 import uuid
 from fastapi.staticfiles import StaticFiles
 import pathlib
 
-# Read Hugging Face token from environment variable
-HF_TOKEN = os.getenv("HF_TOKEN")
-if not HF_TOKEN:
-    raise RuntimeError("HF_TOKEN environment variable not set.")
+# Set GPU memory optimization flags
+torch.cuda.empty_cache()
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+
+# Make HF_TOKEN optional when using local models
+HF_TOKEN = os.getenv("HF_TOKEN", "dummy_token")
 
 # Load model and LoRA weights from RunPod volume
 MODEL_DIR = '/workspace/flux_base'
 LORA_PATH = '/workspace/flux_nsfw/flux_lustly-ai_v1.safetensors'
 
+# Use more memory-efficient settings
 pipeline = AutoPipelineForText2Image.from_pretrained(
     MODEL_DIR,
-    torch_dtype=torch.bfloat16,
+    torch_dtype=torch.float16,  # Use float16 instead of bfloat16 for better compatibility
+    device_map="auto",          # Allow automatic memory management
+    local_files_only=True,      # Don't try to download from HF
 )
+
+# Move to GPU with memory optimization
 pipeline.to("cuda")
-pipeline.load_lora_weights(
-    LORA_PATH,
-    adapter_name="v1"
-)
-pipeline.set_adapters(["v1"], adapter_weights=[1])
+
+# Load LoRA weights with PEFT backend
+try:
+    pipeline.load_lora_weights(
+        LORA_PATH,
+        adapter_name="v1"
+    )
+    pipeline.set_adapters(["v1"], adapter_weights=[1])
+except ValueError as e:
+    if "PEFT backend is required" in str(e):
+        print("Error: Please install PEFT with 'pip install peft>=0.6.0'")
+        raise
+    else:
+        raise
 
 app = FastAPI()
 
@@ -75,15 +91,26 @@ async def generate_image(req: GenerateRequest):
     prompt = ", ".join([p for p in prompt_parts if p])
     if not prompt:
         return JSONResponse({"error": "Prompt is empty."}, status_code=400)
-    # Generate image
-    out = pipeline(
-        prompt=prompt,
-        guidance_scale=4,
-        height=768,
-        width=768,
-        num_inference_steps=20,
-    ).images[0]
-    # Save to temp file
-    filename = f"output_{uuid.uuid4().hex}.png"
-    out.save(filename)
-    return FileResponse(filename, media_type="image/png", filename="output.png") 
+    
+    # Generate image with memory-optimized settings
+    try:
+        # Clear CUDA cache before generation
+        torch.cuda.empty_cache()
+        
+        out = pipeline(
+            prompt=prompt,
+            guidance_scale=4,
+            height=512,  # Reduced from 768 to save memory
+            width=512,   # Reduced from 768 to save memory
+            num_inference_steps=15,  # Reduced from 20 to save memory
+        ).images[0]
+        
+        # Save to temp file
+        filename = f"output_{uuid.uuid4().hex}.png"
+        out.save(filename)
+        return FileResponse(filename, media_type="image/png", filename="output.png")
+    except RuntimeError as e:
+        if "out of memory" in str(e):
+            return JSONResponse({"error": "GPU out of memory. Try with a smaller image size or simpler prompt."}, status_code=500)
+        else:
+            raise 
